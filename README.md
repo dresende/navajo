@@ -13,6 +13,6 @@ of the most common features of the Apache2 server. For now it's not really usabl
 
 - Ability to have specific configuration for specific folders
 - Run javascript on the server
-- Use Connect to use all server cores
+- Use Connect/Cluster to use all server cores
 - Have WebSocket available for javascript running on the server, out of the box
 - Simple API for the files running on the server

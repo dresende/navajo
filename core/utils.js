@@ -1,5 +1,6 @@
 var path = require("path"),
     fs = require("fs"),
+    mime = require("mime"),
     print = require("./print"),
     config = {
         "bind"  : { "host": "0.0.0.0", "port": 80 },
@@ -31,6 +32,10 @@ function loadConfig(path, cb) {
 		config.bind = parseHostPort(config.bind, { "host": "0.0.0.0", "port": 80 });
 
 		print.setLogging(config.log);
+
+		if (typeof config.mime == "object") {
+			mime.define(config.mime);
+		}
 
 		return cb(null, config);
 	});
@@ -104,6 +109,7 @@ function streamFile(file, req, res) {
 	fs.stat(file, function (err, stat) {
 		res.statusCode = 200;
 		res.setHeader("Server", "navajo");
+		res.setHeader("Content-Type", mime.lookup(file));
 
 		if (!err) {
 			res.setHeader("Content-Length", stat.size);

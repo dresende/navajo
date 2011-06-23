@@ -25,8 +25,7 @@ function openLog(file) {
 	try {
 		logFd = fs.openSync(file, "a+");
 	} catch (except) {
-		console.log("ERROR OPENING LOG");
-		console.log(except);
+		console.log("Error opening log - %s", except.message);
 	}
 };
 function log(req, status, file, size) {
@@ -51,7 +50,7 @@ function log(req, status, file, size) {
 				switch (n[2]) {
 					case "i":
 						var h = n[1].toLowerCase();
-						return "\"" + (req.headers.hasOwnProperty(h) ? req.headers[h] : "-") + "\"";
+						return (req.headers.hasOwnProperty(h) ? req.headers[h] : "-");
 				}
 
 				return "?";

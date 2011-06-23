@@ -11,6 +11,7 @@ var path = require("path"),
 exports.loadConfig = loadConfig;
 exports.processRequest = processRequest;
 exports.stopLogging = function () { print.setLogging(null); };
+exports.reopenLogging = function () { print.setLogging(config.log); };
 
 function loadConfig(path, cb) {
 	fs.readFile(path, function (err, data) {

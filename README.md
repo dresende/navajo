@@ -3,10 +3,13 @@
 The purpose of this project is to create a small and simple web server with some
 of the most common features of the Apache2 server. For now it's not really usable.
 
+## Features
+
+- Apache2 log format (most common I think)
+- Ability to use logrotate (kill -USR1 will force logs to be reopened)
+
 ## Features Planned
 
-- Apache2 log format
-- Ability to use logrotate
 - Ability to have specific configuration for specific folders
 - Virtual hosting
 - Run javascript on the server

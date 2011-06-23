@@ -34,4 +34,9 @@ utils.loadConfig("./navajo.conf", function (err, config) {
 		utils.stopLogging();
 		process.exit(0);
 	});
+
+	process.on("SIGUSR1", function () {
+		console.log("Reopening logs..");
+		utils.reopenLogging();
+	});
 });

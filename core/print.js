@@ -58,7 +58,9 @@ function log(req, status, file, size) {
 		}
 	}));
 
-	fs.write(logFd, buf, 0, buf.length);
+	fs.write(logFd, buf, 0, buf.length, function (err) {
+		console.log("Error writing to logfile..");
+	});
 }
 
 function date (format, timestamp) {

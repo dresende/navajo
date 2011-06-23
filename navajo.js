@@ -1,46 +1,37 @@
 /**
  * Navajo - NodeJS HTTP Server
  **/
-var utils = require("./core/utils"),
-    config;
+var utils = require("./core/utils");
 
-// default configuration
-config = {
-	"bind"  : "0.0.0.0:80",
-	"root"  : __dirname + "/www/",
-	"index" : null
-};
 
 // load configuration
-utils.loadConfig("./navajo.conf", function (err, conf) {
+utils.loadConfig("./navajo.conf", function (err, config) {
 	if (err) {
 		console.log("ERROR");
 		console.log(err);
 		return;
 	}
-	for (k in conf) {
-		if (conf.hasOwnProperty(k)) config[k] = conf[k];
-	}
-
-	utils.setConfig(config);
 
 	var http = require("http"),
-	    server = http.createServer(utils.processRequest),
-	    host = "0.0.0.0",
-	    port = 80;
-
-	// parse bind (can be host, port or host:port)
-	if (config.bind.indexOf(":") != -1) {
-		host = config.bind.substr(0, config.bind.indexOf(":"));
-		port = parseInt(config.bind.substr(config.bind.indexOf(":") + 1), 10);
-	} else if (config.bind.match(/\d+\.\d+\.\d+\.\d+/)) {
-		host = config.bind;
-	} else if (config.bind.length > 0) {
-		port = parseInt(config.bind, 10);
-	}
+	    server = http.createServer(utils.processRequest);
 
 	// start server
-	server.listen(port, host, function () {
-		console.log("Server started on %s:%d", host, port);
+	try {
+		server.listen(config.bind.port, config.bind.host, function () {
+			console.log("Server started on %s:%d", config.bind.host, config.bind.port);
+		});
+	} catch (except) {
+		if (except.errno == 13) {
+			console.log("Cannot start on %s:%d - Permission denied. Are you root?", config.bind.host, config.bind.port);
+		} else {
+			console.log("Cannot start on %s:%d - %s", config.bind.host, config.bind.port, except.message);
+		}
+		process.exit(1);
+	}
+
+	process.on("SIGINT", function () {
+		console.log("Server stopping..");
+		utils.stopLogging();
+		process.exit(0);
 	});
 });

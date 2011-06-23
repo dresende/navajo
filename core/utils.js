@@ -1,13 +1,16 @@
 var path = require("path"),
     fs = require("fs"),
     print = require("./print"),
-    config = {};
+    config = {
+        "bind"  : { "host": "0.0.0.0", "port": 80 },
+        "root"  : "www/",
+        "log"   : null,
+        "index" : null
+    };
 
 exports.loadConfig = loadConfig;
 exports.processRequest = processRequest;
-exports.setConfig = function (conf) {
-	config = conf;
-}
+exports.stopLogging = function () { print.setLogging(null); };
 
 function loadConfig(path, cb) {
 	fs.readFile(path, function (err, data) {
@@ -20,8 +23,29 @@ function loadConfig(path, cb) {
 			return cb(e);
 		}
 
-		return cb(null, data);
+		for (k in data) {
+			if (data.hasOwnProperty(k)) config[k] = data[k];
+		}
+
+		config.bind = parseHostPort(config.bind, { "host": "0.0.0.0", "port": 80 });
+
+		print.setLogging(config.log);
+
+		return cb(null, config);
 	});
+}
+
+function parseHostPort(hostport, def) {
+	// parse bind (can be host, port or host:port)
+	if (hostport.indexOf(":") != -1) {
+		def.host = hostport.substr(0, hostport.indexOf(":"));
+		def.port = parseInt(hostport.substr(hostport.indexOf(":") + 1), 10);
+	} else if (hostport.match(/\d+\.\d+\.\d+\.\d+/)) {
+		def.host = hostport;
+	} else if (hostport.length > 0) {
+		def.port = parseInt(hostport, 10);
+	}
+	return def;
 }
 
 function processRequest(req, res) {

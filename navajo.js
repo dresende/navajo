@@ -3,6 +3,7 @@
  **/
 var utils = require("./core/utils");
 
+process.chdir(__dirname);
 
 // load configuration
 utils.loadConfig("./navajo.conf", function (err, config) {

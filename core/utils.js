@@ -54,7 +54,25 @@ function processRequest(req, res) {
 }
 
 function replyTo(url, req, res) {
-	var real_path = path.normalize(path.join(config.root, url));
+	if (typeof config.root == "string") {
+		return replyToPath(config.root, url, req, res);
+	}
+	var host = req.headers.host || "localhost";
+
+	for (vhost in config.root) {
+		if (!config.root.hasOwnProperty(vhost)) continue;
+		if (host.substr(-vhost.length) != vhost) continue;
+
+		return replyToPath(config.root[vhost], url, req, res);
+	}
+
+	if (config.root.hasOwnProperty("default")) {
+		return replyToPath(config.root["default"], url, req, res);
+	}
+}
+
+function replyToPath(base_path, url, req, res) {
+	var real_path = path.normalize(path.join(base_path, url));
 
 	if (real_path.substr(-1) == "/") {
 		return replyWithIndex(real_path, config.index, 0, req, res);
@@ -65,7 +83,7 @@ function replyTo(url, req, res) {
 			return streamFile(real_path, req, res);
 		}
 		return replyNotFound(req, res);
-	})
+	});
 }
 
 function replyWithIndex(base_path, files, index, req, res) {
@@ -84,6 +102,9 @@ function streamFile(file, req, res) {
 	var fd = fs.createReadStream(file);
 
 	fs.stat(file, function (err, stat) {
+		res.statusCode = 200;
+		res.setHeader("Server", "navajo");
+
 		if (!err) {
 			res.setHeader("Content-Length", stat.size);
 		}
@@ -107,16 +128,26 @@ function replyNotFound(req, res) {
 	print.log(req, 404);
 
 	res.writeHead(404, "Not Found", {
-		"Server": "nody"
+		"Server": "navajo"
 	});
-	res.end("404 - Not Found");
+	fs.readFile(__dirname + "/errors/404.html", function (err, data) {
+		if (err) {
+			return red.end("Not Found");
+		}
+		return res.end(data);
+	});
 }
 
 function replyInternalError(req, res) {
 	print.log(req, 500);
 
 	res.writeHead(500, "Internal Server Error", {
-		"Server": "nody"
+		"Server": "navajo"
 	});
-	res.end("500 - Internal Server Error");
+	fs.readFile(__dirname + "/errors/500.html", function (err, data) {
+		if (err) {
+			return red.end("Internal Server Error");
+		}
+		return res.end(data);
+	});
 }

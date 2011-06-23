@@ -1,13 +1,17 @@
 var path = require("path"),
     fs = require("fs"),
+    parse_url = require("url").parse,
     mime = require("mime"),
     print = require("./print"),
     config = {
-        "bind"  : { "host": "0.0.0.0", "port": 80 },
+        "bind"  : "0.0.0.0:80",
         "root"  : "www/",
         "log"   : null,
         "index" : null
-    };
+    },
+    plugins = { // hardcoded for now, working on php5 cgi
+    	"php"   : require("./plugins/php5-cgi")
+	};
 
 exports.loadConfig = loadConfig;
 exports.processRequest = processRequest;
@@ -66,6 +70,23 @@ function replyTo(url, req, res) {
 
 	for (vhost in config.root) {
 		if (!config.root.hasOwnProperty(vhost)) continue;
+
+		// expression
+		if (vhost.indexOf("*") != -1) {
+			var re = new RegExp("^" + vhost.replace("*", "(.+)") + "$"),
+			    m = re.exec(host);
+
+			if (!m) continue;
+
+			var vhost_path = config.root[vhost];
+			for (var i = 1; i <= m.length; i++) {
+				vhost_path = vhost_path.replace("*", m[i]);
+			}
+
+			return replyToPath(vhost_path, url, req, res);
+		}
+
+		// simple
 		if (host.substr(-vhost.length) != vhost) continue;
 
 		return replyToPath(config.root[vhost], url, req, res);
@@ -77,33 +98,39 @@ function replyTo(url, req, res) {
 }
 
 function replyToPath(base_path, url, req, res) {
-	var real_path = path.normalize(path.join(base_path, url));
+	url = parse_url(url);
+	var real_path = path.normalize(path.join(base_path, url.pathname));
 
 	if (real_path.substr(-1) == "/") {
-		return replyWithIndex(real_path, config.index, 0, req, res);
+		return replyWithIndex(real_path, config.index, 0, url, req, res);
 	}
 
 	path.exists(real_path, function (exists) {
 		if (exists) {
-			return streamFile(real_path, req, res);
+			return streamFile(real_path, url, req, res);
 		}
 		return replyNotFound(req, res);
 	});
 }
 
-function replyWithIndex(base_path, files, index, req, res) {
+function replyWithIndex(base_path, files, index, url, req, res) {
 	path.exists(base_path + files[index], function (exists) {
 		if (exists) {
-			return streamFile(base_path + files[index], req, res);
+			return streamFile(base_path + files[index], url, req, res);
 		}
 		if (files.length > index + 1) {
-			return replyWithIndex(base_path, files, index + 1, req, res);
+			return replyWithIndex(base_path, files, index + 1, url, req, res);
 		}
 		return replyNotFound(req, res);
 	});
 }
 
-function streamFile(file, req, res) {
+function streamFile(file, url, req, res) {
+	if (file.match(/\.php$/)) {
+		// this is hardcoded for now just to test and complete the interface
+		return plugins.php.run(file, url, req, res);
+	}
+
 	var fd = fs.createReadStream(file);
 
 	fs.stat(file, function (err, stat) {

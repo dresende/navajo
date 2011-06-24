@@ -5,12 +5,11 @@ exports.run = function (file, url, req, res, cb) {
 	var info = {
 		"size": 0
 	}, ctx = {
-		"headers"   : req.headers,
-		"method"    : req.method,
-		"url"       : url,
-		"file"      : file,
-		"client"    : {
-			"address" : req.connection.remoteAddress
+		"http"      : {
+			"headers"      : req.headers,
+			"method"       : req.method,
+			"url"          : url,
+			"remoteAddress": req.connection.remoteAddress
 		},
 		"setHeader" : function (k, v) {
 			return res.setHeader(k, v);

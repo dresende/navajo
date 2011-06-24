@@ -1,5 +1,5 @@
 <?php
-	header('X-Header: xpto');
+	header('content-type: text/plain');
 
 	printf("GET:\n");
 	print_r($_GET);

@@ -9,9 +9,7 @@ var path = require("path"),
         "log"   : null,
         "index" : null
     },
-    plugins = { // hardcoded for now, working on php5 cgi
-    	"php"   : require("./plugins/php5-cgi")
-	};
+    plugins = {};
 
 exports.loadConfig = loadConfig;
 exports.processRequest = processRequest;
@@ -34,10 +32,19 @@ function loadConfig(path, cb) {
 		}
 
 		config.bind = parseHostPort(config.bind, { "host": "0.0.0.0", "port": 80 });
+		if (typeof config.plugins != "object") {
+			config.plugins = {};
+		}
 
 		print.setLogging(config.log);
 
 		if (typeof config.mime == "object") {
+			for (k in config.mime) {
+				if (!config.mime.hasOwnProperty(k)) continue;
+				if (typeof config.mime[k] == "string") {
+					config.mime[k] = [ config.mime[k] ];
+				}
+			}
 			mime.define(config.mime);
 		}
 
@@ -101,6 +108,9 @@ function replyToPath(base_path, url, req, res) {
 	url = parse_url(url);
 	var real_path = path.normalize(path.join(base_path, url.pathname));
 
+	if (real_path[0] != "/") {
+		real_path = path.normalize(path.join(__dirname + "/../", real_path));
+	}
 	if (real_path.substr(-1) == "/") {
 		return replyWithIndex(real_path, config.index, 0, url, req, res);
 	}
@@ -126,9 +136,16 @@ function replyWithIndex(base_path, files, index, url, req, res) {
 }
 
 function streamFile(file, url, req, res) {
-	if (file.match(/\.php$/)) {
-		// this is hardcoded for now just to test and complete the interface
-		return plugins.php.run(file, url, req, res);
+	var mime_type = mime.lookup(file);
+
+	if (config.plugins.hasOwnProperty(mime_type)) {
+		if (!plugins.hasOwnProperty(config.plugins[mime_type])) {
+			plugins[config.plugins[mime_type]] = require("./plugins/" + config.plugins[mime_type]);
+		}
+
+		return plugins[config.plugins[mime_type]].run(file, url, req, res, function (info) {
+			print.log(req, 200, file, info.size);
+		});
 	}
 
 	var fd = fs.createReadStream(file);
@@ -136,7 +153,7 @@ function streamFile(file, url, req, res) {
 	fs.stat(file, function (err, stat) {
 		res.statusCode = 200;
 		res.setHeader("Server", "navajo");
-		res.setHeader("Content-Type", mime.lookup(file));
+		res.setHeader("Content-Type", mime_type);
 
 		if (!err) {
 			res.setHeader("Content-Length", stat.size);

@@ -26,16 +26,22 @@ exports.run = function (file, url, req, res, cb) {
 		}
 	};
 
-	try {
-		fs.readFile(file, function (err, data) {
-			if (err) {
-				return console.log("ERROR READING NODE FILE");
-			}
+	fs.readFile(file, function (err, data) {
+		if (err) {
+			return console.log("ERROR READING NODE FILE");
+		}
+
+		try {
 			var script = vm.createScript(String(data) + "\nexit();\n", file);
 			script.runInNewContext(ctx);
-		});
-	} catch (except) {
-		console.log("NODE EXCEPTION");
-		console.log(except);
-	}
+		} catch (except) {
+			console.log(except);
+			switch (except.type) {
+				case "not_defined":
+					return res.end("\nException: Undefined " + except.arguments.join("."));
+				default:
+					return res.end("\nException: " + except.message);
+			}
+		}
+	});
 };

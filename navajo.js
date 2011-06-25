@@ -20,6 +20,8 @@ utils.loadConfig("./navajo.conf", function (err, config) {
 	try {
 		server.listen(config.bind.port, config.bind.host, function () {
 			console.log("Server started on %s:%d", config.bind.host, config.bind.port);
+
+			utils.dropPrivileges();
 		});
 	} catch (except) {
 		if (except.errno == 13) {

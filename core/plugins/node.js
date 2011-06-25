@@ -28,19 +28,20 @@ exports.run = function (file, url, req, res, cb) {
 
 	fs.readFile(file, function (err, data) {
 		if (err) {
-			return console.log("ERROR READING NODE FILE");
+			return cb(403);
 		}
 
 		try {
 			var script = vm.createScript(String(data) + "\nexit();\n", file);
 			script.runInNewContext(ctx);
 		} catch (except) {
-			console.log(except);
-			switch (except.type) {
-				case "not_defined":
-					return res.end("\nException: Undefined " + except.arguments.join("."));
-				default:
-					return res.end("\nException: " + except.message);
+			var stack = except.stack.split("\n");
+			var m = stack[1].match(/^(.+):([0-9]+):([0-9]+)$/);
+
+			if (m) {
+				return res.end("\n" + stack[0] + " " + m[1].trim() + " on line " + m[2]);
+			} else {
+				return res.end("\n" + stack[0] + stack[1]);
 			}
 		}
 	});

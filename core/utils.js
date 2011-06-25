@@ -12,12 +12,13 @@ var path = require("path"),
     plugins = {};
 
 exports.loadConfig = loadConfig;
+exports.dropPrivileges = dropPrivileges;
 exports.processRequest = processRequest;
 exports.stopLogging = function () { print.setLogging(null); };
 exports.reopenLogging = function () { print.setLogging(config.log); };
 
-function loadConfig(path, cb) {
-	fs.readFile(path, function (err, data) {
+function loadConfig(config_path, cb) {
+	fs.readFile(config_path, function (err, data) {
 		if (err) {
 			return cb(err);
 		}
@@ -38,6 +39,15 @@ function loadConfig(path, cb) {
 
 		print.setLogging(config.log);
 
+		if (typeof config.root == "object") {
+			for (vhost in config.root) {
+				if (!config.root.hasOwnProperty(vhost)) continue;
+				if (config.root[vhost][0] != "/") {
+					config.root[vhost] = path.join(path.normalize(__dirname + "/../"), config.root[vhost]);
+				}
+			}
+		}
+
 		if (typeof config.mime == "object") {
 			for (k in config.mime) {
 				if (!config.mime.hasOwnProperty(k)) continue;
@@ -50,6 +60,16 @@ function loadConfig(path, cb) {
 
 		return cb(null, config);
 	});
+}
+
+function dropPrivileges() {
+	console.log("Dropping privileges...");
+	if (config.group) {
+		process.setgid(config.group);
+	}
+	if (config.user) {
+		process.setuid(config.user);
+	}
 }
 
 function parseHostPort(hostport, def) {
@@ -70,9 +90,15 @@ function processRequest(req, res) {
 }
 
 function replyTo(url, req, res) {
+	if (!isSubpathOf("/fake/", url)) {
+		//return replyError(404, req, res);
+		url = "/" + path.basename(url);
+	}
+
 	if (typeof config.root == "string") {
 		return replyToPath(config.root, url, req, res);
 	}
+
 	var host = req.headers.host || "localhost";
 
 	for (vhost in config.root) {
@@ -89,7 +115,6 @@ function replyTo(url, req, res) {
 			for (var i = 1; i <= m.length; i++) {
 				vhost_path = vhost_path.replace("*", m[i]);
 			}
-
 			return replyToPath(vhost_path, url, req, res);
 		}
 
@@ -104,13 +129,14 @@ function replyTo(url, req, res) {
 	}
 }
 
+function isSubpathOf(base_path, subpath) {
+	return path.normalize(path.join(base_path, subpath)).substr(0, base_path) == base_path;
+}
+
 function replyToPath(base_path, url, req, res) {
 	url = parse_url(url);
 	var real_path = path.normalize(path.join(base_path, url.pathname));
 
-	if (real_path[0] != "/") {
-		real_path = path.normalize(path.join(__dirname + "/../", real_path));
-	}
 	if (real_path.substr(-1) == "/") {
 		return replyWithIndex(real_path, config.index, 0, url, req, res);
 	}
@@ -119,7 +145,7 @@ function replyToPath(base_path, url, req, res) {
 		if (exists) {
 			return streamFile(real_path, url, req, res);
 		}
-		return replyNotFound(req, res);
+		return replyError(404, req, res);
 	});
 }
 
@@ -131,7 +157,7 @@ function replyWithIndex(base_path, files, index, url, req, res) {
 		if (files.length > index + 1) {
 			return replyWithIndex(base_path, files, index + 1, url, req, res);
 		}
-		return replyNotFound(req, res);
+		return replyError(404, req, res);
 	});
 }
 
@@ -144,6 +170,9 @@ function streamFile(file, url, req, res) {
 		}
 
 		return plugins[config.plugins[mime_type]].run(file, url, req, res, function (info) {
+			if (typeof info == "number") {
+				return replyError(info, req, res);
+			}
 			print.log(req, 200, file, info.size);
 		});
 	}
@@ -174,29 +203,24 @@ function streamFile(file, url, req, res) {
 	});
 }
 
-function replyNotFound(req, res) {
-	print.log(req, 404);
+function replyError(number, req, res) {
+	var desc;
 
-	res.writeHead(404, "Not Found", {
+	switch (number) {
+		case 403: desc = "Forbidden"; break;
+		case 404: desc = "Not Found"; break;
+		case 500: desc = "Internal Server Error"; break;
+		default:  desc = "Unknown";
+	}
+
+	print.log(req, number);
+
+	res.writeHead(number, desc, {
 		"Server": "navajo"
 	});
-	fs.readFile(__dirname + "/errors/404.html", function (err, data) {
+	fs.readFile(__dirname + "/errors/" + number + ".html", function (err, data) {
 		if (err) {
-			return red.end("Not Found");
-		}
-		return res.end(data);
-	});
-}
-
-function replyInternalError(req, res) {
-	print.log(req, 500);
-
-	res.writeHead(500, "Internal Server Error", {
-		"Server": "navajo"
-	});
-	fs.readFile(__dirname + "/errors/500.html", function (err, data) {
-		if (err) {
-			return red.end("Internal Server Error");
+			return res.end();
 		}
 		return res.end(data);
 	});

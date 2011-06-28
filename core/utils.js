@@ -204,7 +204,7 @@ function streamFile(file, url, req, res) {
 }
 
 function replyError(number, req, res) {
-	var desc;
+	var desc, notes;
 
 	switch (number) {
 		case 403: desc = "Forbidden"; break;
@@ -220,7 +220,23 @@ function replyError(number, req, res) {
 	});
 	fs.readFile(__dirname + "/errors/" + number + ".html", function (err, data) {
 		if (err) {
-			return res.end();
+			fs.readFile(__dirname + "/errors/default.html", function (err, data) {
+				if (err) {
+					return res.end();
+				}
+
+				switch (number) {
+					case 403: notes = "Access to the resource was denied"; break;
+					case 404: notes = "The file you're looking for was not found"; break;
+					case 500: notes = "Something wrong just happened on server side"; break;
+					default:  notes = "Something weird just happened on server side";
+				}
+
+				return res.end(String(data).replace(/\{number\}/g, number)
+				                           .replace(/\{description\}/g, desc)
+				                           .replace(/\{notes\}/g, notes));
+			});
+			return;
 		}
 		return res.end(data);
 	});

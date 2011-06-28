@@ -36,6 +36,15 @@ function loadConfig(config_path, cb) {
 		if (typeof config.plugins != "object") {
 			config.plugins = {};
 		}
+		if (config.ignore) {
+			for (var i = 0; i < config.ignore.length; i++) {
+				config.ignore[i] = config.ignore[i].replace(/([.?+^$[\]\\(){}-])/g, "\\$1")
+				                                   .replace("*", ".*");
+				if (config.ignore[i][0] == "/") {
+					config.ignore[i] = "^" + config.ignore[i];
+				}
+			}
+		}
 
 		print.setLogging(config.log);
 
@@ -86,6 +95,14 @@ function parseHostPort(hostport, def) {
 }
 
 function processRequest(req, res) {
+	if (config.ignore) {
+		for (var i = 0; i < config.ignore.length; i++) {
+			var exp = new RegExp(config.ignore[i], "i");
+			if (exp.exec(req.url)) {
+				return replyError(404, req, res);
+			}
+		}
+	}
 	replyTo(req.url, req, res);
 }
 

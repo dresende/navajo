@@ -1,5 +1,7 @@
 var fs = require("fs"),
-	logFormat, logFile, logFd = null;
+	logFd = {},
+	logFormat,
+	logFile;
 
 exports.log = log;
 exports.setLogging = function (config) {
@@ -10,28 +12,60 @@ exports.setLogging = function (config) {
 		logFormat = config.format || "%a %t \"%r\" %>s %b";
 	}
 
-	if (logFd !== null) {
-		fs.closeSync(logFd);
+	for (fd in logFd) {
+		if (logFd.hasOwnProperty(fd)) {
+			fs.close(logFd[fd]);
+		}
 	}
-	if (logFile !== null) {
-		openLog(logFile);
-	} else {
-		logFd = null;
-	}
-	return;
+
+	logFd = {};
 };
 
-function openLog(file) {
+function log(req, status, file, size) {
+	// no log file defined?
+	if (logFile === null) return;
+
+	// lets see how the log filename is..
+	var logPath = replaceString(logFile, req, status, file, size);
+
+	// is it opened?
+	if (logFd.hasOwnProperty(logPath)) {
+		// it's not, it failed to open last time
+		if (logFd[logPath] === null) return;
+
+		// write to it
+		writeToLog(logFd[logPath], new Buffer(replaceString(logFormat + "\n", req, status, file, size)));
+		return;
+	}
+
 	try {
-		logFd = fs.openSync(file, "a+");
+		// mark the file open atempt
+		logFd[logPath] = null;
+
+		// open..
+		fs.open(logPath, "a+", function (err, fd) {
+			if (err) {
+				console.log("Error opening log - %s", err.message);
+				return;
+			}
+
+			// save file descriptor and write to it
+			logFd[logPath] = fd;
+			writeToLog(fd, new Buffer(replaceString(logFormat + "\n", req, status, file, size)));
+		});
 	} catch (except) {
 		console.log("Error opening log - %s", except.message);
 	}
-};
-function log(req, status, file, size) {
-	if (logFd === null) return;
+}
 
-	var buf = new Buffer((logFormat + "\n").replace(/\%(\x3e?[a-z]|\{[a-z\-]+\}[i])/ig, function (m) {
+function writeToLog(fd, buf) {
+	fs.write(fd, buf, 0, buf.length, function (err) {
+		console.log("Error writing to logfile..");
+	});
+}
+
+function replaceString(str, req, status, file, size) {
+	return str.replace(/\%(\x3e?[a-z]|\{[a-z\-]+\}[i])/ig, function (m) {
 		switch (m) {
 			case "%a": return req.connection.remoteAddress;
 			case "%b": return size || "-";
@@ -43,6 +77,7 @@ function log(req, status, file, size) {
 			case "%>s":return status;
 			case "%t": return "[" + date("d/M/Y:H:i:s O") + "]";
 			case "%U": return req.url;
+			case "%v": return req.headers.host || "localhost";
 			default:
 				var n = m.match(/\%{([a-z\-]+)\}([a-z])/i);
 				if (!n) return "?";
@@ -55,14 +90,10 @@ function log(req, status, file, size) {
 
 				return "?";
 		}
-	}));
-
-	fs.write(logFd, buf, 0, buf.length, function (err) {
-		console.log("Error writing to logfile..");
 	});
 }
 
-function date (format, timestamp) {
+function date(format, timestamp) {
 	// http://kevin.vanzonneveld.net
 	// +   original by: Carlos R. L. Rodrigues (http://www.jsfromhell.com)
 	// +      parts by: Peter-Paul Koch (http://www.quirksmode.org/js/beat.html)

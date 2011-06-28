@@ -218,6 +218,7 @@ function replyError(number, req, res) {
 	res.writeHead(number, desc, {
 		"Server": "navajo"
 	});
+
 	fs.readFile(__dirname + "/errors/" + number + ".html", function (err, data) {
 		if (err) {
 			fs.readFile(__dirname + "/errors/default.html", function (err, data) {

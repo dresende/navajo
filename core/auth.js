@@ -4,8 +4,6 @@ exports.generateAuthorization = generateAuthorization;
 exports.checkAuthorization = checkAuthorization;
 
 function generateAuthorization(res, realm, mech) {
-	res.statusCode = 401;
-
 	switch (mech.toLowerCase()) {
 		case "basic":
 			res.setHeader("WWW-Authenticate", "Basic realm=\"" + realm + "\"");
@@ -26,7 +24,6 @@ function generateAuthorization(res, realm, mech) {
 		default:
 			throw { "code": "ENOMECH", "message": "Unknown Authorization mech" };
 	}
-	return res.end();
 }
 
 function checkAuthorization(authorization, method, realm, users) {

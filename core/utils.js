@@ -196,7 +196,8 @@ function streamFile(file, url, req, res) {
 				}
 
 				if (!validated) {
-					return auth.generateAuthorization(res, "navajo", "digest");
+					auth.generateAuthorization(res, "navajo", "digest");
+					return replyError(401, req, res);
 				}
 			}
 		}
@@ -253,6 +254,7 @@ function replyError(number, req, res) {
 	var desc, notes;
 
 	switch (number) {
+		case 401: desc = "Unauthorized"; break;
 		case 403: desc = "Forbidden"; break;
 		case 404: desc = "Not Found"; break;
 		case 500: desc = "Internal Server Error"; break;
@@ -273,6 +275,7 @@ function replyError(number, req, res) {
 				}
 
 				switch (number) {
+					case 401: notes = "Access to the resource was denied"; break;
 					case 403: notes = "Access to the resource was denied"; break;
 					case 404: notes = "The file you're looking for was not found"; break;
 					case 500: notes = "Something wrong just happened on server side"; break;

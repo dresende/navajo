@@ -3,6 +3,7 @@ var path = require("path"),
     parse_url = require("url").parse,
     mime = require("mime"),
     print = require("./print"),
+    auth = require("./auth"),
     config = {
         "bind"  : "0.0.0.0:80",
         "root"  : "www/",
@@ -180,6 +181,26 @@ function replyWithIndex(base_path, files, index, url, req, res) {
 
 function streamFile(file, url, req, res) {
 	var mime_type = mime.lookup(file);
+
+	if (config.authorizations) {
+		for (uri in config.authorizations) {
+			if (!config.authorizations.hasOwnProperty(uri)) continue;
+
+			if (url.pathname.substr(0, uri.length) == uri) {
+				// need authorization
+				var validated = false;
+
+				if (req.headers.hasOwnProperty("authorization")) {
+					req.auth = auth.checkAuthorization(req.headers.authorization, req.method, "navajo", config.authorizations[uri]);
+					validated = req.auth.validated;
+				}
+
+				if (!validated) {
+					return auth.generateAuthorization(res, "navajo", "digest");
+				}
+			}
+		}
+	}
 
 	if (config.plugins.hasOwnProperty(mime_type)) {
 		if (!plugins.hasOwnProperty(config.plugins[mime_type])) {

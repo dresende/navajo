@@ -194,17 +194,25 @@ function streamFile(file, url, req, res) {
 		});
 	}
 
-	var fd = fs.createReadStream(file);
-
 	fs.stat(file, function (err, stat) {
 		res.statusCode = 200;
+		res.setHeader("Date", new Date());
 		res.setHeader("Server", "navajo");
 		res.setHeader("Content-Type", mime_type);
 
 		if (!err) {
 			res.setHeader("Content-Length", stat.size);
+			res.setHeader("Last-Modified", stat.mtime);
 		}
 
+		if (req.method == "HEAD") {
+			if (!err) {
+				res.setHeader("Last-Modified", stat.mtime);
+			}
+			return res.end();
+		}
+
+		var fd = fs.createReadStream(file);
 		fd.on("data", function (chunk) {
 			res.write(chunk);
 		});

@@ -216,6 +216,10 @@ function streamFile(file, url, req, res) {
 		});
 	}
 
+	if ([ "GET", "HEAD" ].indexOf(req.method) == -1) {
+		return replyError(405, req, res);
+	}
+
 	fs.stat(file, function (err, stat) {
 		res.statusCode = 200;
 		res.setHeader("Date", new Date());
@@ -257,6 +261,7 @@ function replyError(number, req, res) {
 		case 401: desc = "Unauthorized"; break;
 		case 403: desc = "Forbidden"; break;
 		case 404: desc = "Not Found"; break;
+		case 405: desc = "Method Not Allowed"; break;
 		case 500: desc = "Internal Server Error"; break;
 		default:  desc = "Unknown";
 	}
@@ -277,7 +282,8 @@ function replyError(number, req, res) {
 				switch (number) {
 					case 401: notes = "Access to the resource was denied"; break;
 					case 403: notes = "Access to the resource was denied"; break;
-					case 404: notes = "The file you're looking for was not found"; break;
+					case 404: notes = "The resource you're looking for was not found"; break;
+					case 405: notes = "The resource you're looking for does not allow this method"; break;
 					case 500: notes = "Something wrong just happened on server side"; break;
 					default:  notes = "Something weird just happened on server side";
 				}
